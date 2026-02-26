@@ -2242,7 +2242,7 @@
             );
         }
 
-        function FechasTab({ userRole, fechas, procesarHorarios, actualizarJugadores, contarPartidosJugador, generarPDF, setFechas, plantel }) {
+       function FechasTab({ userRole, fechas, procesarHorarios, actualizarJugadores, contarPartidosJugador, generarPDF, setFechas, plantel }) {
             const [fechaSeleccionada, setFechaSeleccionada] = useState(0);
             const [showHorarioModal, setShowHorarioModal] = useState(false);
             const [horarioActual, setHorarioActual] = useState({ dia: 'sabado', hora: '09:00', partido1: '', partido2: '' });
@@ -2250,9 +2250,20 @@
             const [showCategoriasModal, setShowCategoriasModal] = useState(false);
             const [categoriasTemp, setCategoriasTemp] = useState({});
             const [jugadoresHabilitadosTemp, setJugadoresHabilitadosTemp] = useState([]);
+            
+            // ESTADO VISTA INTERNA
+            const [vistaInterna, setVistaInterna] = useState('convocatoria');
+
+            const fecha = fechas[fechaSeleccionada];
+
+            // Forzar vista a Cronograma si es Jugador y no está publicada
+            useEffect(() => {
+                if (fecha && userRole === 'jugador' && !fecha.convocada) {
+                    setVistaInterna('cronograma');
+                }
+            }, [fecha, userRole]);
 
             if (fechas.length === 0) return <div className="warning">Por favor, que un Capitán configure primero los equipos y las fechas.</div>;
-            const fecha = fechas[fechaSeleccionada];
 
             const abrirCategoriasModal = () => {
                 setCategoriasTemp(fecha.categoriasHabilitadas || { caballeros_5ta_en_4ta: false, caballeros_4ta_en_3ra: false, caballeros_3ra_en_2da: false, damas_c_en_b: false, damas_b_en_a: false });
@@ -2265,7 +2276,6 @@
                 else setJugadoresHabilitadosTemp([...jugadoresHabilitadosTemp, { jugador: nombreJugador, categoriaDestino }]);
             };
 
-            // NUEVA FUNCIÓN PARA PUBLICAR O BORRADOR
             const toggleConvocatoria = () => {
                 const nuevasFechas = [...fechas];
                 nuevasFechas[fechaSeleccionada].convocada = !nuevasFechas[fechaSeleccionada].convocada;
@@ -2341,124 +2351,159 @@
                         })}
                     </div>
 
-                    {userRole === 'jugador' && !fecha.convocada ? (
-                        <div className="warning" style={{textAlign: 'center', padding: '40px', fontSize: '18px'}}>
-                            🔒 La convocatoria para la Fecha {fecha.numero} aún está siendo armada y no es pública.
-                        </div>
-                    ) : (
-                        <>
-                            <div className="date-section">
-                                <div className="date-header">Fecha {fecha.numero} - vs {fecha.rival}</div>
-                                
-                                {userRole !== 'jugador' && (
-                                    <>
-                                        {/* PANEL DE PUBLICACIÓN EXCLUSIVO CAPITAN/ADMIN */}
-                                        <div style={{ marginBottom: '20px', padding: '15px', background: fecha.convocada ? '#d1fae5' : '#fee2e2', borderRadius: '8px', border: `2px solid ${fecha.convocada ? '#10b981' : '#ef4444'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                                            <div>
-                                                <strong>Estado:</strong> {fecha.convocada ? '📢 Pública (Visible para jugadores)' : '🔒 Oculta (Borrador interno)'}
-                                            </div>
-                                            <button className={`btn ${fecha.convocada ? 'btn-danger' : 'btn-success'} btn-responsive`} onClick={toggleConvocatoria} style={{margin: 0}}>
-                                                {fecha.convocada ? 'Ocultar a Jugadores' : 'Publicar Convocatoria'}
-                                            </button>
-                                        </div>
-
-                                        <div style={{marginBottom: '15px', padding: '12px', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #0ea5e9'}}>
-                                            <strong>Partidos sin asignar: {partidosSinAsignar.length} de 26</strong>
-                                        </div>
-                                        <div style={{marginBottom: '15px'}}>
-                                            <label style={{display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer'}}>
-                                                <input type="checkbox" checked={categoriasHabilitadasCount > 0} onChange={abrirCategoriasModal} />
-                                                <span>Habilitar jugadores de categorías inferiores en superiores</span>
-                                            </label>
-                                            {categoriasHabilitadasCount > 0 && (<div style={{marginTop: '8px', fontSize: '14px', color: '#10b981', fontWeight: '600'}}>✓ {categoriasHabilitadasCount} jugador(es) habilitado(s) en categorías superiores</div>)}
-                                        </div>
-                                        <button className="btn btn-primary btn-responsive" onClick={() => {
-                                            setEditandoHorario(null);
-                                            const horariosUsados = {}; fecha.partidos.forEach(p => { if (p.horario) horariosUsados[`${p.dia}-${p.horario}`] = true; });
-                                            const horariosPosibles = [ { dia: 'sabado', hora: '09:00' }, { dia: 'sabado', hora: '10:30' }, { dia: 'sabado', hora: '12:00' }, { dia: 'sabado', hora: '13:30' }, { dia: 'sabado', hora: '15:00' }, { dia: 'sabado', hora: '16:30' }, { dia: 'sabado', hora: '17:45' }, { dia: 'domingo', hora: '09:00' }, { dia: 'domingo', hora: '10:30' }, { dia: 'domingo', hora: '12:00' }, { dia: 'domingo', hora: '13:30' }, { dia: 'domingo', hora: '15:00' } ];
-                                            const siguienteHorario = horariosPosibles.find(h => !horariosUsados[`${h.dia}-${h.hora}`]);
-                                            if (siguienteHorario) setHorarioActual({ dia: siguienteHorario.dia, hora: siguienteHorario.hora, partido1: '', partido2: '' }); else setHorarioActual({ dia: 'sabado', hora: '09:00', partido1: '', partido2: '' });
-                                            setShowHorarioModal(true);
-                                        }}>➕ Agregar Horario</button>
-                                        
-                                        <div className="form-group" style={{marginTop: '20px'}}>
-                                            <label>Partido Bonus (vale 20 puntos)</label>
-                                            <select value={fecha.partidoBonus || ''} onChange={(e) => { const nuevasFechas = [...fechas]; nuevasFechas[fechaSeleccionada].partidoBonus = e.target.value ? parseInt(e.target.value) : null; setFechas(nuevasFechas); }}>
-                                                <option value="">Seleccionar partido bonus...</option>
-                                                {PARTIDOS.map(p => (<option key={p.id} value={p.id}>{p.tipo}</option>))}
-                                            </select>
-                                        </div>
-                                    </>
-                                )}
-                                {userRole === 'jugador' && fecha.partidoBonus && (
-                                    <div style={{marginTop: '10px', padding: '10px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #f59e0b', color: '#92400e', fontWeight: 'bold'}}>
-                                        ⭐ Partido Bonus de esta fecha: {PARTIDOS.find(p=>p.id===fecha.partidoBonus)?.tipo}
+                    <div className="date-section">
+                        <div className="date-header">Fecha {fecha.numero} - vs {fecha.rival}</div>
+                        
+                        {userRole !== 'jugador' && (
+                            <>
+                                {/* PANEL DE PUBLICACIÓN EXCLUSIVO CAPITAN/ADMIN */}
+                                <div style={{ marginBottom: '20px', padding: '15px', background: fecha.convocada ? '#d1fae5' : '#fee2e2', borderRadius: '8px', border: `2px solid ${fecha.convocada ? '#10b981' : '#ef4444'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                    <div>
+                                        <strong>Estado:</strong> {fecha.convocada ? '📢 Pública (Visible para jugadores)' : '🔒 Oculta (Borrador interno)'}
                                     </div>
-                                )}
-
-                                <button className="btn btn-success btn-responsive" onClick={() => generarPDF(fechaSeleccionada)} style={{marginTop: '20px'}}>📄 Descargar Convocatoria (PDF)</button>
-                            </div>
-
-                            {showCategoriasModal && ( <ModalCategorias plantel={plantel} categoriasTemp={categoriasTemp} setCategoriasTemp={setCategoriasTemp} jugadoresHabilitadosTemp={jugadoresHabilitadosTemp} toggleJugadorHabilitado={toggleJugadorHabilitado} guardarCategorias={guardarCategorias} setShowCategoriasModal={setShowCategoriasModal} /> )}
-
-                            {showHorarioModal && (
-                                <div className="modal" onClick={() => { if (confirm('¿Cerrar sin guardar?')) { setShowHorarioModal(false); setHorarioActual({ dia: 'sabado', hora: '09:00', partido1: '', partido2: '' }); setEditandoHorario(null); } }}>
-                                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                                        <div className="modal-header">{editandoHorario ? 'Editar Horario' : `Agregar Horario (${partidosSinAsignar.length} partidos restantes)`}</div>
-                                        <div className="form-group"><label>Día</label><select value={horarioActual.dia} onChange={(e) => setHorarioActual({...horarioActual, dia: e.target.value})}><option value="sabado">Sábado</option><option value="domingo">Domingo</option></select></div>
-                                        <div className="form-group">
-                                            <label>Horario</label>
-                                            <select value={horarioActual.hora} onChange={(e) => setHorarioActual({...horarioActual, hora: e.target.value})}>
-                                                <option value="09:00">09:00</option><option value="10:30">10:30</option><option value="12:00">12:00</option>
-                                                <option value="13:30">13:30</option><option value="15:00">15:00</option><option value="16:30">16:30</option>
-                                                {horarioActual.dia === 'sabado' && <option value="17:45">17:45</option>}
-                                            </select>
-                                        </div>
-                                        <div className="form-group"><label>Partido 1</label><select value={horarioActual.partido1} onChange={(e) => setHorarioActual({...horarioActual, partido1: e.target.value})}><option value="">Seleccionar partido...</option>{partidosDisponiblesP1.map(p => (<option key={p.id} value={p.id}>{p.tipo}</option>))}</select></div>
-                                        <div className="form-group"><label>Partido 2</label><select value={horarioActual.partido2} onChange={(e) => setHorarioActual({...horarioActual, partido2: e.target.value})} disabled={!horarioActual.partido1}><option value="">Seleccionar partido...</option>{partidosDisponiblesP2.map(p => (<option key={p.id} value={p.id}>{p.tipo}</option>))}</select></div>
-                                        <div className="flex-mobile-col" style={{display: 'flex', gap: '10px', marginTop: '20px'}}>
-                                            <button className="btn btn-primary btn-responsive" onClick={agregarHorario}>{editandoHorario ? 'Actualizar' : partidosSinAsignar.length > 2 ? 'Guardar y Continuar' : 'Guardar'}</button>
-                                            <button className="btn btn-danger btn-responsive" onClick={() => { setShowHorarioModal(false); setHorarioActual({ dia: 'sabado', hora: '09:00', partido1: '', partido2: '' }); setEditandoHorario(null); }}>Cancelar</button>
-                                        </div>
-                                    </div>
+                                    <button className={`btn ${fecha.convocada ? 'btn-danger' : 'btn-success'} btn-responsive`} onClick={toggleConvocatoria} style={{margin: 0}}>
+                                        {fecha.convocada ? 'Ocultar a Jugadores' : 'Publicar Convocatoria'}
+                                    </button>
                                 </div>
+
+                                <div style={{marginBottom: '15px', padding: '12px', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #0ea5e9'}}>
+                                    <strong>Partidos sin asignar: {partidosSinAsignar.length} de 26</strong>
+                                </div>
+                                <div style={{marginBottom: '15px'}}>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer'}}>
+                                        <input type="checkbox" checked={categoriasHabilitadasCount > 0} onChange={abrirCategoriasModal} />
+                                        <span>Habilitar jugadores de categorías inferiores en superiores</span>
+                                    </label>
+                                    {categoriasHabilitadasCount > 0 && (<div style={{marginTop: '8px', fontSize: '14px', color: '#10b981', fontWeight: '600'}}>✓ {categoriasHabilitadasCount} jugador(es) habilitado(s) en categorías superiores</div>)}
+                                </div>
+                                <button className="btn btn-primary btn-responsive" onClick={() => {
+                                    setEditandoHorario(null);
+                                    const horariosUsados = {}; fecha.partidos.forEach(p => { if (p.horario) horariosUsados[`${p.dia}-${p.horario}`] = true; });
+                                    const horariosPosibles = [ { dia: 'sabado', hora: '09:00' }, { dia: 'sabado', hora: '10:30' }, { dia: 'sabado', hora: '12:00' }, { dia: 'sabado', hora: '13:30' }, { dia: 'sabado', hora: '15:00' }, { dia: 'sabado', hora: '16:30' }, { dia: 'sabado', hora: '17:45' }, { dia: 'domingo', hora: '09:00' }, { dia: 'domingo', hora: '10:30' }, { dia: 'domingo', hora: '12:00' }, { dia: 'domingo', hora: '13:30' }, { dia: 'domingo', hora: '15:00' } ];
+                                    const siguienteHorario = horariosPosibles.find(h => !horariosUsados[`${h.dia}-${h.hora}`]);
+                                    if (siguienteHorario) setHorarioActual({ dia: siguienteHorario.dia, hora: siguienteHorario.hora, partido1: '', partido2: '' }); else setHorarioActual({ dia: 'sabado', hora: '09:00', partido1: '', partido2: '' });
+                                    setShowHorarioModal(true);
+                                }}>➕ Agregar Horario</button>
+                                
+                                <div className="form-group" style={{marginTop: '20px'}}>
+                                    <label>Partido Bonus (vale 20 puntos)</label>
+                                    <select value={fecha.partidoBonus || ''} onChange={(e) => { const nuevasFechas = [...fechas]; nuevasFechas[fechaSeleccionada].partidoBonus = e.target.value ? parseInt(e.target.value) : null; setFechas(nuevasFechas); }}>
+                                        <option value="">Seleccionar partido bonus...</option>
+                                        {PARTIDOS.map(p => (<option key={p.id} value={p.id}>{p.tipo}</option>))}
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
+                        {userRole === 'jugador' && fecha.partidoBonus && (
+                            <div style={{marginTop: '10px', padding: '10px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #f59e0b', color: '#92400e', fontWeight: 'bold'}}>
+                                ⭐ Partido Bonus de esta fecha: {PARTIDOS.find(p=>p.id===fecha.partidoBonus)?.tipo}
+                            </div>
+                        )}
+
+                        {/* EL PDF SOLO SE MUESTRA SI SOS CAPITAN/ADMIN O SI YA ESTÁ PUBLICADO */}
+                        {(userRole !== 'jugador' || fecha.convocada) && (
+                            <button className="btn btn-success btn-responsive" onClick={() => generarPDF(fechaSeleccionada)} style={{marginTop: '20px'}}>📄 Descargar Convocatoria (PDF)</button>
+                        )}
+
+                        {/* NUEVA BOTONERA ESTILIZADA PARA DIVIDIR LA PANTALLA */}
+                        <div style={{display: 'flex', gap: '12px', marginTop: '25px', borderTop: '1px solid #cbd5e1', paddingTop: '20px', justifyContent: 'center', flexWrap: 'wrap'}}>
+                            
+                            {/* EL BOTON CONVOCATORIA SOLO APARECE SI ESTÁ PUBLICADA O SOS CAPITAN */}
+                            {(userRole !== 'jugador' || fecha.convocada) && (
+                                <button 
+                                    style={{
+                                        padding: '10px 20px', borderRadius: '25px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', border: 'none', transition: 'all 0.3s',
+                                        background: vistaInterna === 'convocatoria' ? '#1e3c72' : '#f1f5f9',
+                                        color: vistaInterna === 'convocatoria' ? '#d4af37' : '#475569',
+                                        boxShadow: vistaInterna === 'convocatoria' ? '0 4px 10px rgba(30, 60, 114, 0.3)' : 'inset 0 2px 4px rgba(0,0,0,0.05)'
+                                    }}
+                                    onClick={() => setVistaInterna('convocatoria')}
+                                >
+                                    👥 Convocatoria
+                                </button>
                             )}
 
-                            <div style={{marginTop: '30px'}}>
-                                <h3 style={{marginBottom: '15px', color: '#1e3c72'}}>Cronograma</h3>
-                                {Object.keys(partidosPorHorario).length === 0 && <div className="warning" style={{background: 'white', border: '1px solid #ddd'}}>Aún no hay horarios asignados en esta fecha.</div>}
-                                {Object.values(partidosPorHorario).sort((a, b) => { if (a.dia !== b.dia) return a.dia === 'sabado' ? -1 : 1; return a.hora.localeCompare(b.hora); }).map((horario, idx) => (
-                                    <div key={idx} style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '2px solid #ddd' }}>
-                                        <div className="flex-mobile-col" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap:'10px'}}>
-                                            <strong style={{fontSize: '16px', color: '#1e3c72'}}>{horario.dia === 'sabado' ? 'Sábado' : 'Domingo'} - {horario.hora}</strong>
-                                            {userRole !== 'jugador' && (
-                                                <div style={{display: 'flex', gap:'5px'}}>
-                                                    <button className="btn btn-primary" style={{padding: '6px 12px', fontSize: '14px', margin: '0'}} onClick={() => editarHorario(horario.dia, horario.hora)}>✏️ Editar</button>
-                                                    <button className="btn btn-danger" style={{padding: '6px 12px', fontSize: '14px', margin: '0'}} onClick={() => eliminarHorario(horario.dia, horario.hora)}>🗑️</button>
-                                                </div>
-                                            )}
-                                        </div>
-                                        {horario.partidos.sort((a, b) => (a.posicion || 0) - (b.posicion || 0)).map(partido => (
-                                            <div key={partido.id} style={{ background: 'white', padding: '10px', borderRadius: '6px', marginBottom: '8px', border: fecha.partidoBonus === partido.id ? '2px solid #f59e0b' : '1px solid #e5e7eb' }}>
-                                                <strong>Partido {partido.posicion}: {partido.tipo}</strong>
-                                                {fecha.partidoBonus === partido.id && <span style={{color: '#f59e0b', marginLeft: '10px'}}>⭐ BONUS</span>}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                            </div>
+                            <button 
+                                style={{
+                                    padding: '10px 20px', borderRadius: '25px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', border: 'none', transition: 'all 0.3s',
+                                    background: vistaInterna === 'cronograma' ? '#1e3c72' : '#f1f5f9',
+                                    color: vistaInterna === 'cronograma' ? '#d4af37' : '#475569',
+                                    boxShadow: vistaInterna === 'cronograma' ? '0 4px 10px rgba(30, 60, 114, 0.3)' : 'inset 0 2px 4px rgba(0,0,0,0.05)'
+                                }}
+                                onClick={() => setVistaInterna('cronograma')}
+                            >
+                                ⌚ Cronograma
+                            </button>
+                        </div>
+                    </div>
 
-                            <div className="match-grid" style={{marginTop: '30px'}}>
-                                <h3 style={{marginBottom: '15px', color: '#1e3c72'}}>Asignación de Jugadores</h3>
-                                {fecha.partidos.filter(p => p.horario).sort((a, b) => { if (a.dia !== b.dia) return a.dia === 'sabado' ? -1 : 1; if (a.horario !== b.horario) return a.horario.localeCompare(b.horario); return (a.posicion || 0) - (b.posicion || 0); }).map(partido => (
-                                    <PartidoCard 
-                                        key={partido.id} partido={partido} fechaIndex={fechaSeleccionada} fecha={fecha} userRole={userRole}
-                                        actualizarJugadores={actualizarJugadores} contarPartidosJugador={contarPartidosJugador} esBonus={fecha.partidoBonus === partido.id}
-                                        plantel={plantel}
-                                    />
-                                ))}
+                    {showCategoriasModal && ( <ModalCategorias plantel={plantel} categoriasTemp={categoriasTemp} setCategoriasTemp={setCategoriasTemp} jugadoresHabilitadosTemp={jugadoresHabilitadosTemp} toggleJugadorHabilitado={toggleJugadorHabilitado} guardarCategorias={guardarCategorias} setShowCategoriasModal={setShowCategoriasModal} /> )}
+
+                    {showHorarioModal && (
+                        <div className="modal" onClick={() => { if (confirm('¿Cerrar sin guardar?')) { setShowHorarioModal(false); setHorarioActual({ dia: 'sabado', hora: '09:00', partido1: '', partido2: '' }); setEditandoHorario(null); } }}>
+                            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                                <div className="modal-header">{editandoHorario ? 'Editar Horario' : `Agregar Horario (${partidosSinAsignar.length} partidos restantes)`}</div>
+                                <div className="form-group"><label>Día</label><select value={horarioActual.dia} onChange={(e) => setHorarioActual({...horarioActual, dia: e.target.value})}><option value="sabado">Sábado</option><option value="domingo">Domingo</option></select></div>
+                                <div className="form-group">
+                                    <label>Horario</label>
+                                    <select value={horarioActual.hora} onChange={(e) => setHorarioActual({...horarioActual, hora: e.target.value})}>
+                                        <option value="09:00">09:00</option><option value="10:30">10:30</option><option value="12:00">12:00</option>
+                                        <option value="13:30">13:30</option><option value="15:00">15:00</option><option value="16:30">16:30</option>
+                                        {horarioActual.dia === 'sabado' && <option value="17:45">17:45</option>}
+                                    </select>
+                                </div>
+                                <div className="form-group"><label>Partido 1</label><select value={horarioActual.partido1} onChange={(e) => setHorarioActual({...horarioActual, partido1: e.target.value})}><option value="">Seleccionar partido...</option>{partidosDisponiblesP1.map(p => (<option key={p.id} value={p.id}>{p.tipo}</option>))}</select></div>
+                                <div className="form-group"><label>Partido 2</label><select value={horarioActual.partido2} onChange={(e) => setHorarioActual({...horarioActual, partido2: e.target.value})} disabled={!horarioActual.partido1}><option value="">Seleccionar partido...</option>{partidosDisponiblesP2.map(p => (<option key={p.id} value={p.id}>{p.tipo}</option>))}</select></div>
+                                <div className="flex-mobile-col" style={{display: 'flex', gap: '10px', marginTop: '20px'}}>
+                                    <button className="btn btn-primary btn-responsive" onClick={agregarHorario}>{editandoHorario ? 'Actualizar' : partidosSinAsignar.length > 2 ? 'Guardar y Continuar' : 'Guardar'}</button>
+                                    <button className="btn btn-danger btn-responsive" onClick={() => { setShowHorarioModal(false); setHorarioActual({ dia: 'sabado', hora: '09:00', partido1: '', partido2: '' }); setEditandoHorario(null); }}>Cancelar</button>
+                                </div>
                             </div>
-                        </>
+                        </div>
+                    )}
+
+                    {/* VISTA 1: CRONOGRAMA */}
+                    {vistaInterna === 'cronograma' && (
+                        <div style={{marginTop: '10px'}}>
+                            <h3 style={{marginBottom: '15px', color: '#1e3c72'}}>⌚ Cronograma de Horarios</h3>
+                            {Object.keys(partidosPorHorario).length === 0 && <div className="warning" style={{background: 'white', border: '1px solid #ddd'}}>Aún no hay horarios asignados en esta fecha.</div>}
+                            {Object.values(partidosPorHorario).sort((a, b) => { if (a.dia !== b.dia) return a.dia === 'sabado' ? -1 : 1; return a.hora.localeCompare(b.hora); }).map((horario, idx) => (
+                                <div key={idx} style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '2px solid #ddd' }}>
+                                    <div className="flex-mobile-col" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap:'10px'}}>
+                                        <strong style={{fontSize: '16px', color: '#1e3c72'}}>{horario.dia === 'sabado' ? 'Sábado' : 'Domingo'} - {horario.hora}</strong>
+                                        {userRole !== 'jugador' && (
+                                            <div style={{display: 'flex', gap:'5px'}}>
+                                                <button className="btn btn-primary" style={{padding: '6px 12px', fontSize: '14px', margin: '0'}} onClick={() => editarHorario(horario.dia, horario.hora)}>✏️ Editar</button>
+                                                <button className="btn btn-danger" style={{padding: '6px 12px', fontSize: '14px', margin: '0'}} onClick={() => eliminarHorario(horario.dia, horario.hora)}>🗑️</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {horario.partidos.sort((a, b) => (a.posicion || 0) - (b.posicion || 0)).map(partido => (
+                                        <div key={partido.id} style={{ background: 'white', padding: '10px', borderRadius: '6px', marginBottom: '8px', border: fecha.partidoBonus === partido.id ? '2px solid #f59e0b' : '1px solid #e5e7eb' }}>
+                                            <strong>Partido {partido.posicion}: {partido.tipo}</strong>
+                                            {fecha.partidoBonus === partido.id && <span style={{color: '#f59e0b', marginLeft: '10px'}}>⭐ BONUS</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* VISTA 2: CONVOCATORIA (ASIGNACIÓN) */}
+                    {vistaInterna === 'convocatoria' && (userRole !== 'jugador' || fecha.convocada) && (
+                        <div className="match-grid" style={{marginTop: '10px'}}>
+                            {fecha.partidos.filter(p => p.horario).length === 0 && (
+                                <div className="warning" style={{background: 'white', border: '1px solid #ddd'}}>Aún no se han asignado horarios a los partidos. Agregá horarios primero para asignar jugadores.</div>
+                            )}
+                            {fecha.partidos.filter(p => p.horario).sort((a, b) => { if (a.dia !== b.dia) return a.dia === 'sabado' ? -1 : 1; if (a.horario !== b.horario) return a.horario.localeCompare(b.horario); return (a.posicion || 0) - (b.posicion || 0); }).map(partido => (
+                                <PartidoCard 
+                                    key={partido.id} partido={partido} fechaIndex={fechaSeleccionada} fecha={fecha} userRole={userRole}
+                                    actualizarJugadores={actualizarJugadores} contarPartidosJugador={contarPartidosJugador} esBonus={fecha.partidoBonus === partido.id}
+                                    plantel={plantel}
+                                />
+                            ))}
+                        </div>
                     )}
                 </div>
             );
@@ -2510,18 +2555,76 @@
             useEffect(() => { setJugadoresSeleccionados(partido.jugadores || []); }, [partido.jugadores]);
 
             const jugadoresHabilitados = fecha.jugadoresHabilitados || [];
-            const jugadoresDisponibles = partido.categorias.flatMap(cat => {
-                const jugadoresBase = (plantel[cat] || []);
-                const jugadoresExtra = jugadoresHabilitados.filter(jh => jh.categoriaDestino === cat).map(jh => {
-                    const jugadorOriginal = Object.values(plantel).flat().find(j => j.nombre === jh.jugador);
-                    return jugadorOriginal ? { ...jugadorOriginal, esHabilitado: true, categoriaOriginal: jugadorOriginal.categoria } : null;
-                }).filter(Boolean);
-                return [...jugadoresBase, ...jugadoresExtra];
+
+            // 1. Calcular los "slots" (huecos) exactos que requiere este partido
+            let slotsRequeridos = [];
+            if (partido.categorias.length === partido.numJugadores) {
+                // Si es Mixto o Combinado (ej: ["damas_a", "caballeros_2da"])
+                slotsRequeridos = [...partido.categorias];
+            } else if (partido.categorias.length === 1) {
+                // Si es puro (ej: ["caballeros_2da"] y numJugadores es 2 -> duplica el slot)
+                slotsRequeridos = Array(partido.numJugadores).fill(partido.categorias[0]);
+            } else {
+                slotsRequeridos = [...partido.categorias]; // Respaldo
+            }
+
+            // 2. Descontar los slots que ya están ocupados por los jugadores seleccionados
+            const slotsRestantes = [...slotsRequeridos];
+            
+            // Aplanamos el plantel dinámico para buscar jugadores fácilmente
+            const todosLosJugadores = Object.values(plantel || {}).flat();
+
+            jugadoresSeleccionados.forEach(playerName => {
+                const jugadorObj = todosLosJugadores.find(j => j.nombre === playerName);
+                if (jugadorObj) {
+                    // Buscar si su categoría natural sirve para algún slot restante
+                    let slotIndex = slotsRestantes.indexOf(jugadorObj.categoria);
+                    if (slotIndex !== -1) {
+                        slotsRestantes.splice(slotIndex, 1);
+                    } else {
+                        // Si no, buscar si está "habilitado" para jugar en alguna de las categorías restantes
+                        const habilitaciones = jugadoresHabilitados.filter(jh => jh.jugador === playerName);
+                        let found = false;
+                        for (let hab of habilitaciones) {
+                            const hIndex = slotsRestantes.indexOf(hab.categoriaDestino);
+                            if (hIndex !== -1) {
+                                slotsRestantes.splice(hIndex, 1);
+                                found = true;
+                                break;
+                            }
+                        }
+                        // Fallback por si la base de datos tiene un jugador inválido forzado
+                        if (!found && slotsRestantes.length > 0) slotsRestantes.splice(0, 1);
+                    }
+                } else {
+                    if (slotsRestantes.length > 0) slotsRestantes.splice(0, 1);
+                }
             });
 
-            const agregarJugador = (nombreJugador) => {
-                if (jugadoresSeleccionados.length >= partido.numJugadores) { alert(`Este partido solo permite ${partido.numJugadores} jugador(es)`); return; }
-                const jugadorInfo = jugadoresDisponibles.find(j => j.nombre === nombreJugador);
+            // 3. Función para traer solo los jugadores que cumplen con una categoría específica usando el "plantel"
+            const getOpcionesParaSlot = (reqCat) => {
+                const jugadoresBase = plantel[reqCat] || [];
+                const extra = jugadoresHabilitados.filter(jh => jh.categoriaDestino === reqCat).map(jh => {
+                    const jOrig = todosLosJugadores.find(j => j.nombre === jh.jugador);
+                    return jOrig ? { ...jOrig, esHabilitado: true, categoriaOriginal: jOrig.categoria } : null;
+                }).filter(Boolean); // Limpiamos nulos
+                
+                const combinados = [...jugadoresBase, ...extra];
+                // Filtrar para que no aparezcan los que ya están seleccionados en el partido
+                return combinados.filter(d => !jugadoresSeleccionados.includes(d.nombre));
+            };
+
+            // 4. Función para poner nombres lindos en los selectores
+            const formatCatName = (cat) => {
+                const names = { 'damas_a': 'Dama A', 'damas_b': 'Dama B', 'damas_c': 'Dama C', 'caballeros_2da': 'Caballero 2da', 'caballeros_3ra': 'Caballero 3ra', 'caballeros_4ta': 'Caballero 4ta', 'caballeros_5ta': 'Caballero 5ta' };
+                return names[cat] || cat;
+            };
+
+            const agregarJugador = (nombreJugador, reqCat) => {
+                if (jugadoresSeleccionados.length >= partido.numJugadores) return;
+                
+                const opciones = getOpcionesParaSlot(reqCat);
+                const jugadorInfo = opciones.find(j => j.nombre === nombreJugador);
                 const estaHabilitado = jugadorInfo && jugadorInfo.esHabilitado;
                 
                 if (!estaHabilitado) {
@@ -2530,12 +2633,21 @@
                 }
 
                 const nuevosJugadores = [...jugadoresSeleccionados, nombreJugador];
-                setJugadoresSeleccionados(nuevosJugadores); actualizarJugadores(fechaIndex, partido.id, nuevosJugadores);
+                setJugadoresSeleccionados(nuevosJugadores); 
+                actualizarJugadores(fechaIndex, partido.id, nuevosJugadores);
             };
 
             const eliminarJugador = (index) => {
                 const nuevosJugadores = jugadoresSeleccionados.filter((_, i) => i !== index);
-                setJugadoresSeleccionados(nuevosJugadores); actualizarJugadores(fechaIndex, partido.id, nuevosJugadores);
+                setJugadoresSeleccionados(nuevosJugadores); 
+                actualizarJugadores(fechaIndex, partido.id, nuevosJugadores);
+            };
+
+            // Ayudante visual para saber si un jugador cargado es capitán o subió de categoría
+            const getBadgeInfo = (playerName) => {
+                const original = todosLosJugadores.find(j => j.nombre === playerName);
+                const esHabilitado = jugadoresHabilitados.some(jh => jh.jugador === playerName && partido.categorias.includes(jh.categoriaDestino));
+                return { ...original, esHabilitado };
             };
 
             return (
@@ -2552,12 +2664,11 @@
                         <strong>Jugadores asignados:</strong> {jugadoresSeleccionados.length === 0 && <span style={{color: '#999'}}> Ninguno</span>}
                         <div style={{marginTop: '8px'}}>
                             {jugadoresSeleccionados.map((jugador, idx) => {
-                                const jugadorObj = jugadoresDisponibles.find(j => j.nombre === jugador);
-                                const esHabilitado = jugadorObj && jugadorObj.esHabilitado;
+                                const info = getBadgeInfo(jugador);
                                 return (
-                                    <div key={idx} style={{ display: 'inline-block', background: esHabilitado ? '#10b981' : '#667eea', color: 'white', padding: '5px 12px', borderRadius: '6px', marginRight: '8px', marginBottom: '8px' }}>
-                                        {jugador} {jugadorObj?.capitan && <span className="captain-badge">CAPITÁN</span>}
-                                        {esHabilitado && <span style={{ background: 'rgba(255,255,255,0.3)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', marginLeft: '6px' }}>↑</span>}
+                                    <div key={idx} style={{ display: 'inline-block', background: info.esHabilitado ? '#10b981' : '#667eea', color: 'white', padding: '5px 12px', borderRadius: '6px', marginRight: '8px', marginBottom: '8px' }}>
+                                        {jugador} {info?.capitan && <span className="captain-badge">CAPITÁN</span>}
+                                        {info.esHabilitado && <span style={{ background: 'rgba(255,255,255,0.3)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', marginLeft: '6px' }}>↑</span>}
                                         {userRole !== 'jugador' && (
                                             <button onClick={() => eliminarJugador(idx)} style={{ marginLeft: '8px', background: 'rgba(255,255,255,0.3)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '2px 6px' }}>✕</button>
                                         )}
@@ -2567,35 +2678,33 @@
                         </div>
                     </div>
 
-                    {userRole !== 'jugador' && jugadoresSeleccionados.length < partido.numJugadores && (
-                        <div className="form-group" style={{marginBottom: '0'}}>
-                            <label>Agregar jugador:</label>
-                            <select onChange={(e) => { if (e.target.value) { agregarJugador(e.target.value); e.target.value = ''; } }} defaultValue="">
-                                <option value="">Seleccionar...</option>
-                                {jugadoresDisponibles.filter(j => !jugadoresSeleccionados.includes(j.nombre)).map((j, idx) => {
+                    {/* SECCIÓN MÁGICA: DIBUJA UN SELECTOR ESPECÍFICO POR CADA HUECO QUE FALTA LLENAR */}
+                    {userRole !== 'jugador' && slotsRestantes.map((reqCat, idx) => (
+                        <div className="form-group" style={{marginBottom: '8px'}} key={`slot-${idx}`}>
+                            <label style={{fontSize: '13px', color: '#475569', marginBottom: '4px'}}>Seleccionar {formatCatName(reqCat)}:</label>
+                            <select onChange={(e) => { if (e.target.value) { agregarJugador(e.target.value, reqCat); } }} value="">
+                                <option value="">-- Elegir {formatCatName(reqCat)} --</option>
+                                {getOpcionesParaSlot(reqCat).map((j, i) => {
                                     const count = contarPartidosJugador(fechaIndex, j.nombre);
-                                    return ( <option key={idx} value={j.nombre}>{j.nombre} {j.capitan ? '(CAPITÁN)' : ''} {j.esHabilitado ? '↑ ' : `- ${count}/3 partidos`}</option> );
+                                    return ( <option key={i} value={j.nombre}>{j.nombre} {j.capitan ? '(C)' : ''} {j.esHabilitado ? '↑ ' : `- ${count}/3 partidos`}</option> );
                                 })}
                             </select>
                         </div>
-                    )}
+                    ))}
 
                     {jugadoresSeleccionados.some(j => {
-                        const jugadorObj = jugadoresDisponibles.find(jd => jd.nombre === j);
-                        if (jugadorObj && jugadorObj.esHabilitado) return false; 
+                        const info = getBadgeInfo(j);
+                        if (info && info.esHabilitado) return false; 
                         return contarPartidosJugador(fechaIndex, j) > 3;
                     }) && (<div className="player-count-warning">⚠️ Advertencia: Algún jugador supera el límite de 3 partidos</div>)}
                 </div>
             );
         }
 
-        function ResultadosTab({ userRole, equipos, fechas, resultados, toggleResultado, zonasConfig, crucesFinales, playoffAvances, setPlayoffAvances }) {
+        function ResultadosTab({ userRole, fechas, resultados, toggleResultado, zonasConfig, crucesFinales, playoffAvances, setPlayoffAvances }) {
             const [showPlayOffModal, setShowPlayOffModal] = useState(false);
-            
-            // Cuando la pestaña se carga, por defecto dejamos todas las fechas cerradas
             const [fechasExpandidas, setFechasExpandidas] = useState({});
 
-            // Efecto para limpiar las pestañas expandidas si se sale y se vuelve a entrar a esta vista
             useEffect(() => {
                 setFechasExpandidas({});
             }, []);
@@ -2622,12 +2731,16 @@
                 <div>
                     <h2 style={{marginBottom: '20px', color: '#1e3c72'}}>Resultados de Partidos</h2>
                     <button className="btn btn-primary btn-responsive" onClick={() => setShowPlayOffModal(true)} style={{marginBottom: '20px'}}>🏆 Ver Play-Off Proyectado</button>
-                    {showPlayOffModal && (<PlayOffModal userRole={userRole} equipos={equipos} fechas={fechas} resultados={resultados} zonasConfig={zonasConfig} crucesFinales={crucesFinales} playoffAvances={playoffAvances} setPlayoffAvances={setPlayoffAvances} onClose={() => setShowPlayOffModal(false)} />)}
+                    {showPlayOffModal && (<PlayOffModal userRole={userRole} fechas={fechas} resultados={resultados} zonasConfig={zonasConfig} crucesFinales={crucesFinales} playoffAvances={playoffAvances} setPlayoffAvances={setPlayoffAvances} onClose={() => setShowPlayOffModal(false)} />)}
                     
                     {fechas.map((fecha, fechaIdx) => {
+                        if (!fecha) return null;
                         const resultado = calcularResultadoFecha(fechaIdx);
                         const total = resultado.ganados + resultado.perdidos;
                         const isExpanded = fechasExpandidas[fechaIdx];
+                        
+                        // Validamos si la fecha está oculta para el jugador
+                        const isOcultaParaJugador = userRole === 'jugador' && !fecha.convocada;
 
                         return (
                             <div key={fechaIdx} className="date-section" style={{padding: isExpanded ? '20px' : '10px 20px'}}>
@@ -2653,7 +2766,11 @@
                                                         <div>
                                                             <div style={{fontSize: '12px', color: '#666', marginBottom: '4px'}}>{partido.dia === 'sabado' ? 'Sábado' : 'Domingo'} {partido.horario} - Partido {partido.posicion}</div>
                                                             <strong>{partido.tipo}</strong> {esBonus && <span style={{color: '#f59e0b', marginLeft: '10px'}}>⭐ BONUS (20 pts)</span>} {!esBonus && <span style={{color: '#666', marginLeft: '10px', fontSize: '14px'}}>(10 pts)</span>}
-                                                            <div style={{fontSize: '14px', marginTop: '5px'}}>{partido.jugadores.join(' / ')}</div>
+                                                            
+                                                            {/* ACÁ OCULTAMOS LOS NOMBRES SI ES JUGADOR Y NO ESTÁ PUBLICADA */}
+                                                            <div style={{fontSize: '14px', marginTop: '5px', color: isOcultaParaJugador ? '#991b1b' : 'inherit', fontStyle: isOcultaParaJugador ? 'italic' : 'normal', fontWeight: isOcultaParaJugador ? 'bold' : 'normal'}}>
+                                                                {isOcultaParaJugador ? '🔒 Convocatoria en armado' : partido.jugadores.join(' / ')}
+                                                            </div>
                                                         </div>
                                                         <div className="checkbox-container" style={{margin: 0}}>
                                                             <input type="checkbox" checked={ganado} onChange={() => toggleResultado(fechaIdx, partido.id)} disabled={userRole === 'jugador'} />
