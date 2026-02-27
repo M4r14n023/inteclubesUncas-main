@@ -946,14 +946,20 @@
 
             const calcularEstadisticas = () => {
                 const stats = { jugadores: {}, parejas: {} };
-                const plantel = config?.plantel || {};
-                const todosJugadores = Object.values(plantel).flat();
+                
+                // Leemos el plantel dinámico de la nube (configApp.plantel)
+                const todosJugadores = configApp?.plantel ? Object.values(configApp.plantel).flat() : [];
+                
                 todosJugadores.forEach(jugador => {
                     stats.jugadores[jugador.nombre] = { singles: { ganados: 0, perdidos: 0 }, dobles: { ganados: 0, perdidos: 0 }, total: { ganados: 0, perdidos: 0 } };
                 });
                 
                 fechas.forEach((fecha, fechaIdx) => {
                     if (!fecha || !fecha.partidos) return;
+
+                    // 🔒 NUEVO FILTRO DE SEGURIDAD: Si sos jugador y la fecha es borrador, no entra en estadísticas
+                    if (userRole === 'jugador' && !fecha.convocada) return;
+
                     fecha.partidos.forEach(partido => {
                         if (partido.jugadores && partido.jugadores.length > 0) {
                             const key = `${fechaIdx}-${partido.id}`; const ganado = resultados[key] || false; const esSingle = partido.numJugadores === 1;
@@ -1045,7 +1051,7 @@
                                 setCrucesFinales={setCrucesFinales} zonasConfig={zonasConfig} setZonasConfig={setZonasConfig} 
                             />
                         )}
-                        {activeTab === 'admin' && userRole === 'admin' && (
+                       {activeTab === 'admin' && userRole === 'admin' && (
                             <AdminTab 
                                 numEquipos={numEquipos} equipos={equipos} baseEquipos={baseEquipos} fechas={fechas} resultados={resultados} posiciones={posiciones} crucesFinales={crucesFinales} zonasConfig={zonasConfig} playoffAvances={playoffAvances}
                                 setNumEquipos={setNumEquipos} setEquipos={setEquipos} setBaseEquipos={setBaseEquipos} setFechas={setFechas} setResultados={setResultados} setPosiciones={setPosiciones} setCrucesFinales={setCrucesFinales} setZonasConfig={setZonasConfig} setPlayoffAvances={setPlayoffAvances}
@@ -1053,6 +1059,19 @@
                             />
                         )}
                     </div>
+                    {/* --- FOOTER / DERECHOS DE AUTOR --- */}
+                    <div style={{ 
+                        textAlign: 'center', 
+                        padding: '20px', 
+                        borderTop: '1px solid #e2e8f0', 
+                        background: '#f8f9fa', 
+                        color: '#64748b', 
+                        fontSize: '13px' 
+                    }}>
+                        &copy; {new Date().getFullYear()} <strong>Desarrollado por Mariano Lumbreras</strong>. Todos los derechos reservados.<br/>
+                        <span style={{fontSize: '11px', opacity: 0.8}}>Sistema de Gestión de Torneos Interclubes</span>
+                    </div>
+
                 </div>
             );
         }
